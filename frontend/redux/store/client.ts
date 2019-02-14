@@ -1,4 +1,4 @@
-import { createStore, applyMiddleware } from 'redux';
+import { createStore, applyMiddleware, compose } from 'redux';
 import { composeWithDevTools } from 'redux-devtools-extension';
 import { createLogger } from 'redux-logger';
 import thunk from 'redux-thunk';
@@ -8,14 +8,13 @@ import getConfig from 'next/config';
 import rootReducer from '../reducers';
 const { publicRuntimeConfig } = getConfig();
 
-const enhancers = [];
-const middlewares: any[] = [thunk];
+const middleware: any[] = [thunk];
 
 if (publicRuntimeConfig.NODE_ENV !== 'production') {
 	const logger = createLogger({
 		predicate: (getState, action) => !/persist/.test(action.type)
 	});
-	middlewares.push(logger);
+	middleware.push(logger);
 }
 // const persistConfig = {
 // 	key: 'data',
@@ -24,11 +23,11 @@ if (publicRuntimeConfig.NODE_ENV !== 'production') {
 // };
 // const persistedReducer = persistReducer(persistConfig, rootReducer);
 
-export default (initialState = {}, options) => {
-	// return createStore(persistedReducer, initialState, composeWithDevTools(applyMiddleware(...middlewares)));
-	return createStore(
-		rootReducer,
-		initialState,
-		composeWithDevTools(applyMiddleware(...middlewares))
-	);
+const enhancer =
+	publicRuntimeConfig.NODE_ENV !== 'production'
+		? composeWithDevTools(applyMiddleware(...middleware))
+		: compose(applyMiddleware(...middleware));
+
+export default (initialState, options) => {
+	return createStore(rootReducer, initialState, enhancer);
 };

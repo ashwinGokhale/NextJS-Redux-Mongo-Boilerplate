@@ -18,10 +18,10 @@ export class EmailService {
 		const url =
 			CONFIG.NODE_ENV !== 'production'
 				? `http://localhost:${CONFIG.PORT}`
-				: 'https://purduehackers.com';
+				: 'https://website.com';
 
 		return sendGrid.send({
-			templateId: 'd-850d406dbbf240bc9f53f455ed975321',
+			templateId: 'template-id',
 			from: `"${CONFIG.ORG_NAME}" <${CONFIG.EMAIL}>`,
 			to: member.email,
 			dynamicTemplateData: {
@@ -42,10 +42,10 @@ export class EmailService {
 		const url =
 			CONFIG.NODE_ENV !== 'production'
 				? `http://localhost:${CONFIG.PORT}`
-				: 'https://purduehackers.com';
+				: 'https://website.com';
 
 		return await sendGrid.send({
-			templateId: 'd-0bba1a0346c24bd69a46d81d2e950e55',
+			templateId: 'template-id',
 			from: `"${CONFIG.ORG_NAME}" <${CONFIG.EMAIL}>`,
 			to: member.email,
 			dynamicTemplateData: {
@@ -58,7 +58,7 @@ export class EmailService {
 
 	async sendErrorEmail(error: Error, user?: UserDto) {
 		return sendGrid.send({
-			templateId: 'd-9fbbdf1f9c90423a80d69b83885eefa8',
+			templateId: 'template-id',
 			from: `"${CONFIG.ORG_NAME}" <${CONFIG.EMAIL}>`,
 			to: CONFIG.EMAIL,
 			dynamicTemplateData: {

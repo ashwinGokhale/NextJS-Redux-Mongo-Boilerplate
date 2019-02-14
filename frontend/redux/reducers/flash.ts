@@ -1,9 +1,14 @@
 import { FLASH_GREEN_SET, FLASH_RED_SET } from '../constants';
 import { AnyAction } from 'redux';
 
-export const initialState = {
-	msgGreen: '',
-	msgRed: ''
+export interface IFlashState {
+	green: string;
+	red: string;
+}
+
+export const initialState: IFlashState = {
+	green: '',
+	red: ''
 };
 
 export default (state = initialState, action: AnyAction) => {
@@ -11,13 +16,13 @@ export default (state = initialState, action: AnyAction) => {
 		case FLASH_GREEN_SET: {
 			return {
 				...state,
-				msgGreen: action.msgGreen
+				green: action.green
 			};
 		}
 		case FLASH_RED_SET: {
 			return {
 				...state,
-				msgRed: action.msgRed
+				red: action.red
 			};
 		}
 		default:

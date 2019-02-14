@@ -4,7 +4,6 @@ import Router from 'next/router';
 import { signUp, sendFlashMessage } from '../redux/actions';
 import { ILoginResponse, ICreateUser } from '../@types';
 import { ISessionState } from '../redux/reducers/session';
-import { redirectIfAuthenticated } from '../utils/session';
 
 type Props = {
 	signup: (body: ICreateUser) => Promise<ILoginResponse>;
@@ -12,12 +11,10 @@ type Props = {
 } & ISessionState;
 
 class SignupPage extends Component<Props> {
-
-	static getInitialProps = (ctx) => {
-		redirectIfAuthenticated('/', ctx);
+	static getInitialProps = ctx => {
 		return {};
 	};
-	
+
 	state = {
 		name: '',
 		email: '',
@@ -33,9 +30,9 @@ class SignupPage extends Component<Props> {
 		const { name, email, password, passwordConfirm } = this.state;
 		if (!name || !email || !password || !passwordConfirm) return;
 		try {
-			const user = await this.props.signup(this.state);
+			const { user } = await this.props.signup(this.state);
 			Router.push('/');
-			console.log('New User:', user);
+			this.props.flash(`Welcome ${user.name}!`);
 		} catch (error) {
 			console.error('Error creating user', error);
 		}
@@ -90,7 +87,9 @@ const mapStateToProps = state => ({
 	...state.sessionState
 });
 
-export default connect(
+const ConnectedSignupPage = connect(
 	mapStateToProps,
 	{ signup: signUp, flash: sendFlashMessage }
 )(SignupPage);
+
+export default ConnectedSignupPage;

@@ -1,19 +1,17 @@
 import { Component } from 'react';
 import { connect } from 'react-redux';
-import Router from 'next/router';
-import { sendFlashMessage, signOut } from '../redux/actions';
+import { signOut } from '../redux/actions';
+import Redirect from '../components/Redirect';
 
-type Props = { logout: () => Promise<void>; flash: (msg: any, type?: string) => void };
+type Props = { logout: () => Promise<void> };
 
 class Logout extends Component<Props> {
-	componentDidMount() {
+	componentWillMount = () => {
 		this.props.logout();
-		Router.push('/');
-		this.props.flash('Successfully logged out');
-	}
+	};
 
 	render() {
-		return null;
+		return <Redirect to="/" green="Successfully logged out" />;
 	}
 }
 
@@ -23,5 +21,5 @@ const mapStateToProps = state => ({
 
 export default connect(
 	mapStateToProps,
-	{ logout: signOut, flash: sendFlashMessage }
+	{ logout: signOut }
 )(Logout);

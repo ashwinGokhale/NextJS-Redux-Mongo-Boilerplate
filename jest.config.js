@@ -30,12 +30,11 @@ module.exports = {
 			moduleFileExtensions: ['ts', 'tsx', 'js', 'json'],
 			name: 'backend',
 			preset: 'ts-jest',
-			// testEnvironment: 'node',
 			testEnvironment: '<rootDir>/backend/__tests__/globals/env.js',
 			testMatch: ['**/backend/__tests__/**/*.test.ts'],
 			testPathIgnorePatterns: ['dist']
 		}
 	],
-	testPathIgnorePatterns: ['<rootDir>/node_modules/', 'dist/']
-	// verbose: true
+	testPathIgnorePatterns: ['<rootDir>/node_modules/', 'dist/'],
+	verbose: true
 };

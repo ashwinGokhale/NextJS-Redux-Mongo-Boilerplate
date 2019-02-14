@@ -16,11 +16,9 @@ const bucket = storage.bucket(CONFIG.GC_BUCKET);
 @Service('storageService')
 export class StorageService {
 	async uploadToStorage(file: Express.Multer.File, folder: string, user: UserDto) {
-		if (!file) return 'No image file';
+		if (!file) throw new Error('No image file');
 		else if (folder === 'pictures' && !file.originalname.match(/\.(jpg|jpeg|png|gif)$/i))
-			return `File: ${file.originalname} is an invalid image type`;
-		else if (folder === 'resumes' && !file.originalname.match(/\.(pdf)$/i))
-			return `File: ${file.originalname} is an invalid image type`;
+			throw new Error(`File: ${file.originalname} is an invalid image type`);
 
 		const fileName = `${folder}/${user.email.replace('@', '_')}`;
 		const fileUpload = bucket.file(fileName);

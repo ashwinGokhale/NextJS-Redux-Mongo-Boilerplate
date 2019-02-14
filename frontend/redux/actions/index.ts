@@ -1,14 +1,10 @@
+import ReactGA from 'react-ga';
 import { ActionCreator, AnyAction, Dispatch } from 'redux';
-import { ICreateUser, ILoginUser, ILoginResponse } from '../../@types';
-import { api } from '../../utils';
+import { ICreateUser, ILoginUser, ILoginResponse, IContext, flashColor } from '../../@types';
+import { api, err } from '../../utils';
 import { AUTH_USER_SET, AUTH_TOKEN_SET, FLASH_GREEN_SET, FLASH_RED_SET } from '../constants';
 import { setCookie, removeCookie, getToken } from '../../utils/session';
-
-// Helper functions
-// export const getToken = state => {
-// 	// return state.sessionState.token;
-// 	return getCookie('token');
-// };
+import * as flash from '../../utils/flash';
 
 const makeCreator = (type: string, ...argNames: string[]): ActionCreator<AnyAction> => (
 	...args: any[]
@@ -24,8 +20,8 @@ const makeCreator = (type: string, ...argNames: string[]): ActionCreator<AnyActi
 export const setUser = makeCreator(AUTH_USER_SET, 'user');
 export const setToken = makeCreator(AUTH_TOKEN_SET, 'token');
 
-const setGreenFlash = makeCreator(FLASH_GREEN_SET, 'msgGreen');
-const setRedFlash = makeCreator(FLASH_RED_SET, 'msgRed');
+const setGreenFlash = makeCreator(FLASH_GREEN_SET, 'green');
+const setRedFlash = makeCreator(FLASH_RED_SET, 'red');
 
 // Actions
 export const signUp = (body: ICreateUser) => async (
@@ -52,6 +48,7 @@ export const signIn = (body: ILoginUser) => async (dispatch: Dispatch): Promise<
 		dispatch(setToken(response.token));
 		dispatch(setUser(response.user));
 		setCookie('token', response.token);
+		ReactGA.set({ userId: response.user._id });
 		return response;
 	} catch (error) {
 		if (error.response) throw error.response.data;
@@ -59,11 +56,12 @@ export const signIn = (body: ILoginUser) => async (dispatch: Dispatch): Promise<
 	}
 };
 
-export const signOut = () => async (dispatch: Dispatch) => {
+export const signOut = (ctx?: IContext) => async (dispatch: Dispatch) => {
 	try {
 		dispatch(setToken(''));
 		dispatch(setUser(null));
-		removeCookie('token');
+		removeCookie('token', ctx);
+		ReactGA.set({ userId: null });
 	} catch (error) {
 		throw error;
 	}
@@ -95,22 +93,16 @@ export const resetPassword = async (password, passwordConfirm, token) => {
 	}
 };
 
-export const sendFlashMessage = (msg, type = 'red') => (dispatch: Dispatch) => {
-	type === 'red' ? dispatch(setRedFlash(msg)) : dispatch(setGreenFlash(msg));
-};
-
-export const clearFlashMessages = () => (dispatch: Dispatch) => {
-	dispatch(setGreenFlash(''));
-	dispatch(setRedFlash(''));
-};
-
-export const refreshToken = (ctx?, params?: any) => async (dispatch: Dispatch) => {
+// Should only be called in the "server-side" context in _app
+export const refreshToken = (ctx?: IContext, params?: any) => async (dispatch: Dispatch) => {
 	try {
+		if (ctx && ctx.res && ctx.res.headersSent) return;
 		const token = getToken(ctx);
 		if (!token) {
 			dispatch(setUser(null));
 			dispatch(setToken(''));
-			removeCookie('token');
+			removeCookie('token', ctx);
+			ReactGA.set({ userId: null });
 			return null;
 		}
 		const {
@@ -119,13 +111,35 @@ export const refreshToken = (ctx?, params?: any) => async (dispatch: Dispatch) =
 			params,
 			headers: { Authorization: `Bearer ${token}` }
 		});
+
 		dispatch(setUser(response.user));
 		dispatch(setToken(response.token));
-		setCookie('token', response.token);
+		setCookie('token', response.token, ctx);
+		ReactGA.set({ userId: response.user._id });
 		return response;
 	} catch (error) {
-		throw error.response.data;
+		if (error.response) throw error.response.data;
+		throw error;
 	}
+};
+
+export const sendFlashMessage = (msg: string, ctx?: IContext, type: flashColor = 'red') => (
+	dispatch: Dispatch
+) => {
+	if (type === 'red') {
+		dispatch(setRedFlash(msg));
+		flash.set({ red: msg }, ctx);
+	} else {
+		dispatch(setGreenFlash(msg));
+		flash.set({ green: msg }, ctx);
+	}
+};
+
+export const clearFlashMessages = (ctx?: IContext) => (dispatch: Dispatch) => {
+	dispatch(setGreenFlash(''));
+	dispatch(setRedFlash(''));
+	removeCookie('flash', ctx);
+	// flash.get(ctx);
 };
 
 export const storageChanged = e => (dispatch, getState) => {
