@@ -53,6 +53,7 @@
 		"yes-https": "^0.0.4"
 	},
 	"devDependencies": {
+		"@babel/plugin-proposal-decorators": "^7.3.0",
 		"@types/bcrypt": "^3.0.0",
 		"@types/cookie-parser": "^1.4.1",
 		"@types/cors": "^2.8.4",

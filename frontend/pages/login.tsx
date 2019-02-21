@@ -1,16 +1,24 @@
 import React, { Component, FormEvent, ChangeEvent } from 'react';
 import { connect } from 'react-redux';
 import Router from 'next/router';
-import { signIn, sendFlashMessage } from '../redux/actions';
-import { ISessionState } from '../redux/reducers/session';
-import { ILoginUser, ILoginResponse } from '../@types';
+import { ILoginUser, ILoginResponse, IContext } from '../@types';
+import { signIn, sendErrorMessage, sendSuccessMessage, clearFlashMessages } from '../redux/actions';
+import { err } from '../utils';
 
 type Props = {
 	signin: (body: ILoginUser) => Promise<ILoginResponse>;
-	flash: (msg: any, type?: string) => void;
-} & ISessionState;
+	flashError: (msg: string, ctx?: IContext) => void;
+	flashSuccess: (msg: string, ctx?: IContext) => void;
+	clear: (ctx?: IContext) => void;
+};
 
-class LoginPage extends Component<Props> {
+@((connect as any)(null, {
+	signin: signIn,
+	flashError: sendErrorMessage,
+	flashSuccess: sendSuccessMessage,
+	clear: clearFlashMessages
+}))
+export default class LoginPage extends Component<Props> {
 	state = {
 		email: '',
 		password: ''
@@ -21,14 +29,13 @@ class LoginPage extends Component<Props> {
 
 	onSubmit = async (e: FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
-		const { email, password } = this.state;
-		if (!email || !password) return;
 		try {
+			this.props.clear();
 			const { user } = await this.props.signin(this.state);
 			Router.push('/');
-			this.props.flash(`Welcome ${user.name}!`);
+			this.props.flashSuccess(`Welcome ${user.name}!`);
 		} catch (error) {
-			console.error('Error creating user', error);
+			this.props.flashError(err(error));
 		}
 	};
 
@@ -60,14 +67,3 @@ class LoginPage extends Component<Props> {
 		);
 	}
 }
-
-const mapStateToProps = state => ({
-	...state.sessionState
-});
-
-const ConnectedLogin = connect(
-	mapStateToProps,
-	{ signin: signIn, flash: sendFlashMessage }
-)(LoginPage);
-
-export default ConnectedLogin;

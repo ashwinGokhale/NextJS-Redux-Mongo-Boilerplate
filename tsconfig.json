@@ -15,8 +15,8 @@
 		"skipLibCheck": true,
 		"outDir": "dist",
 		"typeRoots": ["./node_modules/@types", "./frontend/@types"],
-		"lib": ["es2017", "dom", "es2015", "es2016"]
+		"lib": ["dom", "es2017"]
 	},
 	"exclude": ["./node_modules"],
-	"include": ["backend"]
+	"include": ["backend", "frontend"]
 }

@@ -1,20 +1,24 @@
 import React, { Component, FormEvent, ChangeEvent } from 'react';
 import { connect } from 'react-redux';
 import Router from 'next/router';
-import { signUp, sendFlashMessage } from '../redux/actions';
-import { ILoginResponse, ICreateUser } from '../@types';
-import { ISessionState } from '../redux/reducers/session';
+import { ICreateUser, ILoginResponse, IContext } from '../@types';
+import { signUp, sendErrorMessage, sendSuccessMessage, clearFlashMessages } from '../redux/actions';
+import { err } from '../utils';
 
 type Props = {
 	signup: (body: ICreateUser) => Promise<ILoginResponse>;
-	flash: (msg: any, type?: string) => void;
-} & ISessionState;
+	flashError: (msg: string, ctx?: IContext) => void;
+	flashSuccess: (msg: string, ctx?: IContext) => void;
+	clear: (ctx?: IContext) => void;
+};
 
-class SignupPage extends Component<Props> {
-	static getInitialProps = ctx => {
-		return {};
-	};
-
+@((connect as any)(null, {
+	signup: signUp,
+	flashError: sendErrorMessage,
+	flashSuccess: sendSuccessMessage,
+	clear: clearFlashMessages
+}))
+export default class SignupPage extends Component<Props> {
 	state = {
 		name: '',
 		email: '',
@@ -27,19 +31,17 @@ class SignupPage extends Component<Props> {
 
 	onSubmit = async (e: FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
-		const { name, email, password, passwordConfirm } = this.state;
-		if (!name || !email || !password || !passwordConfirm) return;
 		try {
+			this.props.clear();
 			const { user } = await this.props.signup(this.state);
 			Router.push('/');
-			this.props.flash(`Welcome ${user.name}!`);
+			this.props.flashSuccess(`Welcome ${user.name}!`);
 		} catch (error) {
-			console.error('Error creating user', error);
+			this.props.flashError(err(error));
 		}
 	};
 
 	render() {
-		console.log('Rendering signup page');
 		const { name, email, password, passwordConfirm } = this.state;
 		return (
 			<div>
@@ -82,14 +84,3 @@ class SignupPage extends Component<Props> {
 		);
 	}
 }
-
-const mapStateToProps = state => ({
-	...state.sessionState
-});
-
-const ConnectedSignupPage = connect(
-	mapStateToProps,
-	{ signup: signUp, flash: sendFlashMessage }
-)(SignupPage);
-
-export default ConnectedSignupPage;

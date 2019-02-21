@@ -1,7 +1,7 @@
 import cookie from 'js-cookie';
 import Router from 'next/router';
 import { IUser, IContext } from '../@types';
-import { sendFlashMessage } from '../redux/actions';
+import { sendErrorMessage } from '../redux/actions';
 
 export enum Role {
 	USER = 'USER',
@@ -32,7 +32,10 @@ export const getCookie = (key: string, ctx?: IContext) => {
 };
 
 export const getToken = (ctx?: IContext) => {
-	return getCookie('token', ctx);
+	let token = ctx && ctx.store && ctx.store.getState().sessionState.token;
+	if (token) return token;
+	token = getCookie('token', ctx);
+	return token;
 };
 
 export const redirect = (target: string, ctx?: IContext, replace?: boolean) => {
@@ -57,9 +60,14 @@ const extractUser = (ctx: IContext) => {
 	return user;
 };
 
-export const hasPermission = (user: IUser, name: string): boolean => {
-	if (!user || !user.role) return false;
-	return user.role === Role.ADMIN || user.role === name;
+export const roleMatches = (role: Role, name: Role) => {
+	if (!role) return false;
+	return role === Role.ADMIN || role === name;
+};
+
+export const hasPermission = (user: IUser, name: Role) => {
+	if (!user) return false;
+	return roleMatches(user.role, name);
 };
 
 export const isAuthenticated = (ctx: IContext, roles?: Role[]) => {
@@ -74,11 +82,11 @@ export const isAuthenticated = (ctx: IContext, roles?: Role[]) => {
 export const redirectIfNotAuthenticated = (
 	path: string,
 	ctx: IContext,
-	{ roles, msg }: { roles?: Role[]; msg?: string } = {}
+	{ roles, msg = 'Permission Denied' }: { roles?: Role[]; msg?: string } = {}
 ): boolean => {
 	if (!isAuthenticated(ctx, roles)) {
 		redirect(path, ctx, true);
-		if (msg) sendFlashMessage(msg, ctx)(ctx.store.dispatch);
+		sendErrorMessage(msg, ctx)(ctx.store.dispatch);
 		return true;
 	}
 

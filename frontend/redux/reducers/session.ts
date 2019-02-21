@@ -4,7 +4,7 @@ import { IUser } from '../../@types';
 
 export interface ISessionState {
 	token: string;
-	user: IUser;
+	user: IUser | null;
 }
 
 export const initialState: ISessionState = {

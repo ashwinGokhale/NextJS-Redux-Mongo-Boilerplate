@@ -6,8 +6,8 @@ const Index = () => {
 		<div>
 			Home Page
 			<br />
-			<Link href="/apply">
-				<button>Apply</button>
+			<Link href="/private">
+				<button>Private</button>
 			</Link>
 		</div>
 	);

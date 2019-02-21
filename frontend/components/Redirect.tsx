@@ -1,11 +1,12 @@
 import { Component } from 'react';
 import { connect } from 'react-redux';
-import { sendFlashMessage } from '../redux/actions';
+import { IContext } from '../@types';
 import { redirect } from '../utils/session';
-import { IContext, flashColor } from '../@types';
+import { sendErrorMessage, sendSuccessMessage } from '../redux/actions';
 
 type DispatchToProps = {
-	flash: (msg: string, ctx?: IContext, type?: flashColor) => void;
+	flashError: (msg: string, ctx?: IContext) => void;
+	flashSuccess: (msg: string, ctx?: IContext) => void;
 };
 
 type Props = {
@@ -16,10 +17,10 @@ type Props = {
 
 class Redirect extends Component<Props> {
 	componentDidMount() {
-		const { to, flash, green, red } = this.props;
+		const { to, flashSuccess, flashError, green, red } = this.props;
 		redirect(to);
-		if (red) flash(red);
-		else if (green) flash(green, null, 'green');
+		if (red) flashError(red);
+		else if (green) flashSuccess(green);
 	}
 
 	render() {
@@ -28,6 +29,6 @@ class Redirect extends Component<Props> {
 }
 
 export default connect<{}, DispatchToProps>(
-	() => ({}),
-	{ flash: sendFlashMessage }
+	null,
+	{ flashError: sendErrorMessage, flashSuccess: sendSuccessMessage }
 )(Redirect);
