@@ -2,6 +2,7 @@ import * as bcrypt from 'bcrypt';
 import { Document, Schema, model } from 'mongoose';
 import { IsEmail, Matches, IsNotEmpty } from 'class-validator';
 import { Exclude, Expose } from 'class-transformer';
+import { Role } from '../../shared/user.enums';
 
 @Exclude()
 export class UserDto {
@@ -23,7 +24,7 @@ export class UserDto {
 }
 
 export interface IUserModel extends UserDto, Document {
-	roles: string[];
+	roles: Role[];
 	createdAt: Date;
 	updatedAt: Date;
 }
