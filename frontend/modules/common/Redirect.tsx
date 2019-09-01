@@ -1,19 +1,19 @@
 import { Component } from 'react';
 import { connect } from 'react-redux';
-import { IContext } from '../@types';
-import { redirect } from '../utils/session';
-import { sendErrorMessage, sendSuccessMessage } from '../redux/actions';
+import { sendErrorMessage, sendSuccessMessage } from '../../redux/actions';
+import { redirect } from '../../utils/session';
+import { IContext } from '../../@types';
 
-type DispatchToProps = {
+interface DispatchToProps {
 	flashError: (msg: string, ctx?: IContext) => void;
 	flashSuccess: (msg: string, ctx?: IContext) => void;
-};
+}
 
-type Props = {
+interface Props extends DispatchToProps {
 	to: string;
 	green?: string;
 	red?: string;
-} & DispatchToProps;
+}
 
 class Redirect extends Component<Props> {
 	componentDidMount() {

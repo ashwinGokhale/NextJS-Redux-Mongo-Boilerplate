@@ -1,39 +1,33 @@
-import * as express from 'express';
 import { Request } from 'express';
-import { ObjectId } from 'mongodb';
 import { isEmail } from 'validator';
 import * as jwt from 'jsonwebtoken';
 import CONFIG from '../config';
 import { User, UserDto } from '../models/user';
-import { multer, extractToken } from '../utils';
-import {
-	JsonController,
-	Post,
-	Req,
-	UseBefore,
-	Body,
-	UseAfter,
-	BadRequestError,
-	UnauthorizedError,
-	Get,
-	BodyParam
-} from 'routing-controllers';
+import { extractToken } from '../utils';
 import { ValidationMiddleware } from '../middleware/validation';
-import { BaseController } from './base.controller';
 import { EmailService } from '../services/email.service';
 import { StorageService } from '../services/storage.service';
+import {
+	Controller,
+	UseAfter,
+	Post,
+	Body,
+	Req,
+	Get,
+	BodyParam,
+	BadRequestError,
+	UnauthorizedError
+} from 'routing-controllers';
+import { Repository } from 'typeorm';
+import { InjectRepository } from 'typeorm-typedi-extensions';
 
-export const router = express.Router();
-
-@JsonController('/api/auth')
+@Controller('/api/auth')
 @UseAfter(ValidationMiddleware)
-export class AuthController extends BaseController {
-	constructor(private emailService?: EmailService, private storageService?: StorageService) {
-		super();
-	}
+export class AuthController {
+	@InjectRepository(User) userService: Repository<User>;
+	constructor(private emailService?: EmailService, private storageService?: StorageService) {}
 
 	@Post('/signup')
-	@UseBefore(multer.any())
 	async signup(
 		@BodyParam('password') password: string,
 		@BodyParam('passwordConfirm') passwordConfirm: string,
@@ -43,19 +37,21 @@ export class AuthController extends BaseController {
 			throw new BadRequestError('A password longer than 5 characters is required');
 		if (!passwordConfirm) throw new BadRequestError('Please confirm your password');
 		if (passwordConfirm !== password) throw new BadRequestError('Passwords did not match');
-		member.password = password;
 
-		const exists = await User.findOne({ email: member.email }).exec();
+		const exists = await this.userService.findOne({ email: member.email });
 		if (exists) throw new BadRequestError('An account already exists with that email');
 
-		const user = new User(member);
+		const user = this.userService.create(member);
+		user.password = password;
 		await user.save();
-		const u = user.toJSON();
-		delete u.password;
-		const token = jwt.sign({ _id: u._id }, CONFIG.SECRET, { expiresIn: CONFIG.EXPIRES_IN });
+		delete user.password;
+		delete user.resetPasswordToken;
+		const token = jwt.sign({ id: user.id }, CONFIG.SECRET, {
+			expiresIn: CONFIG.EXPIRES_IN
+		});
 
 		return {
-			user: u,
+			user,
 			token
 		};
 	}
@@ -63,19 +59,27 @@ export class AuthController extends BaseController {
 	@Post('/login')
 	async login(@Body() body: { email: string; password: string }) {
 		const { email, password } = body;
-		const user = await User.findOne({ email }, '+password').exec();
-		if (!user) throw new UnauthorizedError('Member not found');
+
+		const user = await this.userService
+			.createQueryBuilder('user')
+			.addSelect('user.password')
+			.where('user.email = :email', { email })
+			.getOne();
+		if (!user) throw new UnauthorizedError('User not found');
 
 		// Check if password matches
-		if (!user.comparePassword(password)) throw new UnauthorizedError('Wrong password');
+		const passwordMatches = await user.comparePassword(password);
+		if (!passwordMatches) throw new UnauthorizedError('Wrong password');
 
-		const u = user.toJSON();
-		delete u.password;
+		delete user.password;
+		delete user.resetPasswordToken;
 
 		// If user is found and password is right create a token
-		const token = jwt.sign({ _id: u._id }, CONFIG.SECRET, { expiresIn: CONFIG.EXPIRES_IN });
+		const token = jwt.sign({ id: user.id }, CONFIG.SECRET, {
+			expiresIn: CONFIG.EXPIRES_IN
+		});
 		return {
-			user: u,
+			user,
 			token
 		};
 	}
@@ -87,13 +91,14 @@ export class AuthController extends BaseController {
 		if (!token || token === 'null' || token === 'undefined')
 			throw new UnauthorizedError('No token provided');
 		const payload: any = jwt.decode(token);
-		if (!payload || !payload._id || !ObjectId.isValid(payload._id))
-			throw new UnauthorizedError('Invalid token');
-		const user = await User.findById(payload._id)
-			.lean()
-			.exec();
-		if (!user) throw new UnauthorizedError('Member not found');
-		token = jwt.sign({ _id: user._id }, CONFIG.SECRET, { expiresIn: CONFIG.EXPIRES_IN });
+		if (!payload || !payload.id) throw new UnauthorizedError('Invalid token');
+
+		const user = await this.userService.findOne({ id: payload.id });
+		if (!user) throw new UnauthorizedError('User not found');
+		token = jwt.sign({ id: user.id }, CONFIG.SECRET, {
+			expiresIn: CONFIG.EXPIRES_IN
+		});
+
 		return { user, token };
 	}
 
@@ -101,13 +106,14 @@ export class AuthController extends BaseController {
 	async forgot(@Body() body: { email: string }) {
 		const { email } = body;
 		if (!email || !isEmail(email)) throw new BadRequestError('Please provide a valid email');
-		const member = await User.findOne({ email }).exec();
-		if (!member) throw new BadRequestError(`There is no member with the email: ${email}`);
-		const token = jwt.sign({ id: member._id }, CONFIG.SECRET, { expiresIn: '2 days' });
+		const member = await this.userService.findOne({ email });
+		if (!member) throw new BadRequestError(`There is no user with the email: ${email}`);
+		const token = jwt.sign({ id: member.id }, CONFIG.SECRET, {
+			expiresIn: '2 days'
+		});
 		member.resetPasswordToken = token;
 		await member.save();
 		const res = await this.emailService.sendResetEmail(member);
-		this.logger.info('Sent email:', res);
 		return `A link to reset your password has been sent to: ${email}`;
 	}
 
@@ -120,7 +126,7 @@ export class AuthController extends BaseController {
 		if (passwordConfirm !== password) throw new BadRequestError('Passwords did not match');
 
 		if (!token) throw new UnauthorizedError('Invalid reset password token');
-		let payload: { id: string };
+		let payload: { id: number };
 		try {
 			payload = jwt.verify(token, CONFIG.SECRET) as any;
 		} catch (error) {
@@ -128,16 +134,19 @@ export class AuthController extends BaseController {
 		}
 		if (!payload) throw new UnauthorizedError('Invalid reset password token');
 		const { id } = payload;
-		if (!id || !ObjectId.isValid(id))
-			throw new BadRequestError('Reset password token corresponds to an invalid member');
-		const member = await User.findById(id).exec();
-		if (!member)
-			throw new BadRequestError('Reset password token corresponds to a non existing member');
-		if (member.resetPasswordToken !== token)
-			throw new UnauthorizedError('Wrong reset password token for this member');
-		member.password = password;
-		member.resetPasswordToken = '';
-		await member.save();
-		return `Successfully changed password for: ${member.name}`;
+		const user = await this.userService
+			.createQueryBuilder('user')
+			.addSelect('user.resetPasswordToken')
+			.where('user.id = :id', { id })
+			.getOne();
+
+		if (!user)
+			throw new BadRequestError('Reset password token corresponds to a non existing user');
+		if (user.resetPasswordToken !== token)
+			throw new UnauthorizedError('Wrong reset password token for this user');
+		user.password = password;
+		user.resetPasswordToken = '';
+		await user.save();
+		return `Successfully changed password for: ${user.name}`;
 	}
 }

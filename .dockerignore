@@ -1,4 +1,4 @@
-node_modules
+node_modules/
 npm-debug.log
 Dockerfile*
 docker-compose*
@@ -11,7 +11,7 @@ README.md
 LICENSE
 .vscode
 travis.yml
-dist
-coverage
-data
+dist/
+coverage/
+data/
 # .next

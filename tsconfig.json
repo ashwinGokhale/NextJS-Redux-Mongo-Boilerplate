@@ -9,13 +9,13 @@
 		"allowSyntheticDefaultImports": true,
 		"experimentalDecorators": true,
 		"emitDecoratorMetadata": true,
-		"removeComments": false,
+		"removeComments": true,
 		"preserveConstEnums": true,
 		"sourceMap": true,
 		"skipLibCheck": true,
 		"outDir": "dist",
 		"typeRoots": ["./node_modules/@types", "./frontend/@types"],
-		"lib": ["dom", "es2017"]
+		"lib": ["dom", "es2017", "webworker"]
 	},
 	"exclude": ["./node_modules"],
 	"include": ["backend", "frontend"]

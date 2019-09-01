@@ -1,33 +1,14 @@
 import ReactGA from 'react-ga';
-import { ActionCreator, AnyAction, Dispatch } from 'redux';
+import { Dispatch } from 'redux';
+import { decode } from 'jsonwebtoken';
 import { ICreateUser, ILoginUser, ILoginResponse, IContext, IUser } from '../../@types';
-import { api, err } from '../../utils';
-import { AUTH_USER_SET, AUTH_TOKEN_SET, FLASH_GREEN_SET, FLASH_RED_SET } from '../constants';
+import { api } from '../../utils';
 import { setCookie, removeCookie, getToken } from '../../utils/session';
 import * as flash from '../../utils/flash';
-
-const makeCreator = (type: string, ...argNames: string[]): ActionCreator<AnyAction> => (
-	...args: any[]
-) => {
-	const action = { type };
-	argNames.forEach((_, index) => {
-		action[argNames[index]] = args[index];
-	});
-	return action;
-};
-
-// Action Creators
-export const setUser = makeCreator(AUTH_USER_SET, 'user');
-export const setToken = makeCreator(AUTH_TOKEN_SET, 'token');
-
-const setGreenFlash = makeCreator(FLASH_GREEN_SET, 'green');
-const setRedFlash = makeCreator(FLASH_RED_SET, 'red');
+import { setToken, setUser, setGreenFlash, setRedFlash } from '../creators';
 
 // Auth Actions
-// TODO: Signing up should not log user in
-export const signUp = (body: ICreateUser) => async (
-	dispatch: Dispatch
-): Promise<ILoginResponse> => {
+export const signUp = (body: ICreateUser) => async (dispatch: Dispatch) => {
 	try {
 		const {
 			data: { response }
@@ -35,22 +16,28 @@ export const signUp = (body: ICreateUser) => async (
 		dispatch(setToken(response.token));
 		dispatch(setUser(response.user));
 		setCookie('token', response.token);
-		return response;
+		const resp: ILoginResponse = response;
+		return resp;
 	} catch (error) {
 		throw error.response ? error.response.data : error;
 	}
 };
 
-export const signIn = (body: ILoginUser) => async (dispatch: Dispatch): Promise<ILoginResponse> => {
+export const signIn = (body: ILoginUser) => async (dispatch: Dispatch) => {
 	try {
 		const {
 			data: { response }
 		} = await api.post('/auth/login', body);
 		dispatch(setToken(response.token));
 		dispatch(setUser(response.user));
-		setCookie('token', response.token);
+		const tomorrow = new Date(new Date().getTime() + 24 * 60 * 60 * 1000);
+		const nextYear = new Date(new Date().setFullYear(new Date().getFullYear() + 1));
+		setCookie('token', response.token, null, {
+			expires: !body.rememberMe ? tomorrow : nextYear
+		});
 		ReactGA.set({ userId: response.user._id });
-		return response;
+		const resp: ILoginResponse = response;
+		return resp;
 	} catch (error) {
 		throw error.response ? error.response.data : error;
 	}
@@ -67,34 +54,9 @@ export const signOut = (ctx?: IContext) => async (dispatch: Dispatch) => {
 	}
 };
 
-export const forgotPassword = async (email: string) => {
-	try {
-		const {
-			data: { response }
-		} = await api.post('/auth/forgot', { email });
-		return response;
-	} catch (error) {
-		throw error.response ? error.response.data : error;
-	}
-};
-
-export const resetPassword = async (password: string, passwordConfirm: string, token: string) => {
-	try {
-		const {
-			data: { response }
-		} = await api.post('/auth/reset', {
-			password,
-			passwordConfirm,
-			token
-		});
-		return response;
-	} catch (error) {
-		throw error.response ? error.response.data : error;
-	}
-};
-
-// Should only be called in the "server-side" context in _app
-export const refreshToken = (ctx?: IContext, params?: any) => async (dispatch: Dispatch) => {
+// Should only be called in the "server-side" context in _app.tsx
+// Takes token from cookie and populates redux store w/ token and user object
+export const refreshSession = (ctx?: IContext) => async (dispatch: Dispatch) => {
 	try {
 		if (ctx && ctx.res && ctx.res.headersSent) return;
 		const token = getToken(ctx);
@@ -108,7 +70,6 @@ export const refreshToken = (ctx?: IContext, params?: any) => async (dispatch: D
 		const {
 			data: { response }
 		} = await api.get('/auth/refresh', {
-			params,
 			headers: { Authorization: `Bearer ${token}` }
 		});
 
@@ -118,13 +79,33 @@ export const refreshToken = (ctx?: IContext, params?: any) => async (dispatch: D
 		ReactGA.set({ userId: response.user._id });
 		return response;
 	} catch (error) {
-		if (!error.response) throw error;
+		console.error('Error refreshing token:', error);
+		// if (!error.response) throw error;
 		dispatch(setUser(null));
 		dispatch(setToken(''));
 		removeCookie('token', ctx);
 		ReactGA.set({ userId: null });
 		return null;
-		// throw error.response ? error.response.data : error;
+	}
+};
+
+// User actions
+export const updateProfile = (body: { name: string }, ctx?: IContext, id?: string) => async (
+	dispatch: Dispatch
+) => {
+	try {
+		const token = getToken(ctx);
+		if (!id) id = (decode(token) as any)._id;
+		const {
+			data: { response }
+		} = await api.put(`/users/${id}`, body, {
+			headers: { Authorization: `Bearer ${token}` }
+		});
+		const user: IUser = response;
+		dispatch(setUser(user));
+		return user;
+	} catch (error) {
+		throw error.response ? error.response.data : error;
 	}
 };
 
@@ -143,10 +124,4 @@ export const clearFlashMessages = (ctx?: IContext) => (dispatch: Dispatch) => {
 	dispatch(setGreenFlash(''));
 	dispatch(setRedFlash(''));
 	removeCookie('flash', ctx);
-};
-
-export const storageChanged = e => (dispatch, getState) => {
-	const token = getToken(getState());
-	if (!token) signOut()(dispatch);
-	else dispatch(setToken(token));
 };

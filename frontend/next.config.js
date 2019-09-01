@@ -2,9 +2,10 @@ const withTypescript = require('@zeit/next-typescript');
 const withCss = require('@zeit/next-css');
 const withLess = require('@zeit/next-less');
 const withPlugins = require('next-compose-plugins');
-const withTM = require('next-plugin-transpile-modules');
+const withTM = require('next-transpile-modules');
+const withBundleAnalyzer = require('@next/bundle-analyzer');
+const withOffline = require('next-offline');
 const lessToJS = require('less-vars-to-js');
-const webpack = require('webpack');
 const { readFileSync } = require('fs');
 const { resolve } = require('path');
 const { publicRuntimeConfig, serverRuntimeConfig } = require('../backend/config/env-config');
@@ -36,13 +37,20 @@ module.exports = withPlugins(
 					modifyVars: themeVariables // Change theme
 				}
 			}
+		],
+		[withOffline],
+		[
+			withBundleAnalyzer({
+				enabled: publicRuntimeConfig.ANALYZE
+			})
 		]
 	],
 	{
 		publicRuntimeConfig,
 		serverRuntimeConfig,
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		webpack: (config, options) => {
-			const { dev, isServer } = options;
+			// const { dev, isServer } = options;
 			// if (isServer && dev) {
 			// 	const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
 

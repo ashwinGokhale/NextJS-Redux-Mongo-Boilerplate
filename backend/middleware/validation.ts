@@ -1,7 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
-import { ExpressErrorMiddlewareInterface, BadRequestError } from 'routing-controllers';
+import { ExpressErrorMiddlewareInterface, BadRequestError, Middleware } from 'routing-controllers';
 import { ValidationError } from 'class-validator';
 
+@Middleware({ type: 'after' })
 export class ValidationMiddleware implements ExpressErrorMiddlewareInterface {
 	error(err, req: Request, res: Response, next: NextFunction): void {
 		if (err.errors && err.errors.length && err.errors[0] instanceof ValidationError) {

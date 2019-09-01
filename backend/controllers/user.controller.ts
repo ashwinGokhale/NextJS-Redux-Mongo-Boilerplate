@@ -1,70 +1,76 @@
-import { ObjectId } from 'mongodb';
-import { User, UserDto, IUserModel } from '../models/user';
-import { userMatches, multer } from '../utils';
+import { InjectRepository } from 'typeorm-typedi-extensions';
 import {
-	JsonController,
+	Controller,
+	UseAfter,
 	Get,
-	QueryParam,
-	Param,
-	BadRequestError,
 	Put,
-	Body,
 	UseBefore,
+	QueryParam,
+	BadRequestError,
+	Param,
+	Body,
 	CurrentUser,
 	UnauthorizedError,
-	UseAfter
+	Authorized
 } from 'routing-controllers';
-import { BaseController } from './base.controller';
+import { userMatches, multer } from '../utils';
 import { ValidationMiddleware } from '../middleware/validation';
+import { UserDto, User } from '../models/user';
+import { Repository } from 'typeorm';
+import { Role } from '../../shared/user.enums';
 
-@JsonController('/api/users')
+@Controller('/api/users')
 @UseAfter(ValidationMiddleware)
-export class UserController extends BaseController {
+export class UserController {
+	@InjectRepository(User) userService: Repository<User>;
+	// constructor(private userService: UserService) {
+	// 	this.userService = getCustomRepository(UserService);
+	// }
+
 	@Get('/')
+	@Authorized(Role.EXEC)
 	async getAll(@QueryParam('sortBy') sortBy?: string, @QueryParam('order') order?: number) {
 		order = order === 1 ? 1 : -1;
 		sortBy = sortBy || 'createdAt';
 
-		let contains = false;
-		User.schema.eachPath(path => {
-			if (path.toLowerCase() === sortBy.toLowerCase()) contains = true;
-		});
+		const contains = this.userService.metadata.columns.some(
+			col => col.propertyName.toLowerCase() === sortBy.toLowerCase()
+		);
+
 		if (!contains) sortBy = 'createdAt';
 
-		const results = await User.find()
-			.sort({ [sortBy]: order })
-			.lean()
-			.exec();
+		const results = await this.userService.find({
+			order: { [sortBy]: order }
+		});
+
+		// const users = await this.userService.find();
+		// console.log('Users:', users);
 
 		return { users: results };
 	}
 
 	@Get('/:id')
+	@Authorized(Role.EXEC)
 	async getById(@Param('id') id: string) {
-		if (!ObjectId.isValid(id)) throw new BadRequestError('Invalid user ID');
-		const user = await User.findById(id)
-			.lean()
-			.exec();
-		if (!user) throw new BadRequestError('User does not exist');
+		const user = await this.userService.findOne(id);
+		if (!user) throw new BadRequestError('User not found');
 		return user;
 	}
 
 	@Put('/:id')
+	@Authorized()
 	@UseBefore(multer.any())
 	async updateById(
-		@Param('id') id: string,
+		@Param('id') id: number,
 		@Body() userDto: UserDto,
-		@CurrentUser({ required: true }) currentUser: IUserModel
+		@CurrentUser({ required: true }) currentUser: User
 	) {
-		if (!ObjectId.isValid(id)) throw new BadRequestError('Invalid user ID');
+		let user = await this.userService.findOne(id);
+		if (!user) throw new BadRequestError('User not found');
 		if (!userMatches(currentUser, id))
 			throw new UnauthorizedError('You are unauthorized to edit this profile');
-		let user = await User.findById(id, '+password').exec();
-		if (!user) throw new BadRequestError('User not found');
 
-		user = await User.findByIdAndUpdate(id, userDto, { new: true })
-			.lean()
-			.exec();
+		user = await this.userService.save({ id, ...userDto });
 		return user;
 	}
 }

@@ -1,16 +1,15 @@
-import cookie from 'js-cookie';
+import cookie, { CookieAttributes } from 'js-cookie';
 import Router from 'next/router';
 import { IUser, IContext } from '../@types';
+import { Role } from '../../shared/user.enums';
 import { sendErrorMessage } from '../redux/actions';
 
-export enum Role {
-	USER = 'USER',
-	MENTOR = 'MENTOR',
-	EXEC = 'EXEC',
-	ADMIN = 'ADMIN'
-}
-
-export const setCookie = (key: string, value: string | object, ctx?: IContext, options?) => {
+export const setCookie = (
+	key: string,
+	value: string | object,
+	ctx?: IContext,
+	options?: object
+) => {
 	// Server
 	if (ctx && ctx.req) ctx.res.cookie(key, value, options);
 	// Client
@@ -32,9 +31,10 @@ export const getCookie = (key: string, ctx?: IContext) => {
 };
 
 export const getToken = (ctx?: IContext) => {
-	let token = ctx && ctx.store && ctx.store.getState().sessionState.token;
-	if (token) return token;
-	token = getCookie('token', ctx);
+	// let token = ctx && ctx.store && ctx.store.getState().sessionState.token;
+	// if (token) return token;
+	// token = getCookie('token', ctx);
+	let token = getCookie('token', ctx);
 	return token;
 };
 
@@ -52,7 +52,7 @@ export const redirect = (target: string, ctx?: IContext, replace?: boolean) => {
 	return true;
 };
 
-const extractUser = (ctx: IContext) => {
+export const extractUser = (ctx: IContext) => {
 	// Try to get from redux, and if not, req.user
 	let user = ctx && ctx.store && ctx.store.getState().sessionState.user;
 	if (user) return user;
@@ -68,6 +68,12 @@ export const roleMatches = (role: Role, name: Role) => {
 export const hasPermission = (user: IUser, name: Role) => {
 	if (!user) return false;
 	return roleMatches(user.role, name);
+};
+
+export const userMatches = (user: IUser, id: string) => {
+	if (!user || !id) return false;
+	if (hasPermission(user, Role.ADMIN)) return true;
+	return user.id === id;
 };
 
 export const isAuthenticated = (ctx: IContext, roles?: Role[]) => {

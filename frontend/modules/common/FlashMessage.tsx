@@ -1,13 +1,11 @@
 import React from 'react';
 
-type Props = { green: string; red: string };
+interface Props {
+	green: string;
+	red: string;
+}
 
-const defaultProps: Props = {
-	green: '',
-	red: ''
-};
-
-const FlashMessage = ({ green, red } = defaultProps) => {
+const FlashMessage = ({ green, red }: Props) => {
 	return (
 		<React.Fragment>
 			{green && (
@@ -30,6 +28,11 @@ const FlashMessage = ({ green, red } = defaultProps) => {
 			)}
 		</React.Fragment>
 	);
+};
+
+FlashMessage.defaultProps = {
+	green: '',
+	red: ''
 };
 
 export default FlashMessage;

@@ -3,7 +3,7 @@ import { Store } from 'redux';
 import { IFlashState } from '../redux/reducers/flash';
 import { ISessionState } from '../redux/reducers/session';
 import { Request, Response } from 'express';
-import { Role } from '../utils/session';
+import { Role } from '../../shared/user.enums';
 
 export interface IStoreState {
 	flashState: IFlashState;
@@ -17,12 +17,10 @@ export interface IContext extends NextContext {
 }
 
 export interface IUser {
-	_id: string;
+	id: string;
 	name: string;
 	email: string;
 	role: Role;
-	verified: boolean;
-	checkedin: boolean;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -41,6 +39,7 @@ export interface ICreateUser {
 export interface ILoginUser {
 	email: string;
 	password: string;
+	rememberMe: boolean;
 }
 
 // Response types

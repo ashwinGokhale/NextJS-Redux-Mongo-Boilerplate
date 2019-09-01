@@ -1,8 +1,10 @@
 import { Response, Request } from 'express';
-import { ObjectId } from 'mongodb';
 import * as Multer from 'multer';
 import { ExtractJwt } from 'passport-jwt';
-import { IUserModel } from '../models/user';
+import * as jwt from 'jsonwebtoken';
+import { User } from '../models/user';
+import { Role } from '../../shared/user.enums';
+import CONFIG from '../config';
 
 export const multer = Multer({
 	storage: Multer.memoryStorage(),
@@ -19,21 +21,27 @@ export const errorRes = (res: Response, status: number, error: any) =>
 		error
 	});
 
-export const hasPermission = (user: IUserModel, name: string): boolean =>
-	user && user.roles && user.roles.some(role => role === name || role === 'admin');
+// export const hasPermission = (user: User, name: string): boolean =>
+// 	user && user.roles && user.roles.some(role => role === name || role === 'admin');
 
-export const isAdmin = (user: IUserModel) => hasPermission(user, 'admin');
+export const hasPermission = (user: User, role: Role): boolean => {
+	if (!user || !user.role) return false;
+	return user.role === Role.ADMIN || user.role === role;
+};
 
-export const userMatches = (user: IUserModel, id: ObjectId | string) =>
-	user &&
-	(hasPermission(user, 'admin') ||
-		user._id === id ||
-		(typeof user._id.equals === 'function' && user._id.equals(id)));
+export const isAdmin = (user: User) => hasPermission(user, Role.ADMIN);
+
+export const userMatches = (user: User, id: number, exec?: boolean) => {
+	if (!user) return false;
+	if (isAdmin(user)) return true;
+	if (exec && hasPermission(user, Role.EXEC)) return true;
+	return user.id === id;
+};
 
 export const escapeRegEx = (str: string) =>
 	str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, '\\$&');
 
-const dateToString = (date: string | number | Date) =>
+const dateToString = date =>
 	new Date(date).toLocaleDateString('en-US', {
 		year: 'numeric',
 		month: 'short',
@@ -41,9 +49,18 @@ const dateToString = (date: string | number | Date) =>
 		weekday: 'short'
 	});
 
+export const formatDate = date => {
+	if (!date) return 'Current';
+	const str = dateToString(date);
+	return str !== 'Invalid Date' ? str : 'Current';
+};
+
 export const toBoolean = (val: any, obj: any, type) => `${val}`.toLowerCase() === 'true';
 
-export const isNotEmpty = (obj: any, val: any) => val !== '' && val !== null && val !== undefined;
+// export const isNotEmpty = (obj: any, val: any) => val !== '' && val !== null && val !== undefined;
+
+export const isNotEmpty = (field: string) => (obj: any, val: any) =>
+	obj[field] !== '' && obj[field] !== null && obj[field] !== undefined;
 
 export const extractToken = (req: Request) =>
 	ExtractJwt.fromExtractors([
@@ -57,3 +74,8 @@ export const extractToken = (req: Request) =>
 			return token;
 		}
 	])(req);
+
+export const signToken = (user: User, expiresIn = CONFIG.EXPIRES_IN) =>
+	jwt.sign({ id: user.id, role: user.role }, CONFIG.SECRET, {
+		expiresIn
+	});
