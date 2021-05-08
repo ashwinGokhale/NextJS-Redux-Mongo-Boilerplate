@@ -69,7 +69,7 @@
 		"sqlite3": "^4.1.0",
 		"swagger-ui-express": "^4.0.2",
 		"typedi": "^0.8.0",
-		"typeorm": "^0.2.18",
+		"typeorm": "^0.2.25",
 		"typeorm-typedi-extensions": "^0.2.3",
 		"web-push": "^3.3.5",
 		"yes-https": "^1.0.0"
